@@ -1,5 +1,199 @@
 import MIL.Common
 import Mathlib.Data.Real.Basic
+import Mathlib.Data.List.Basic
+
+namespace agm
+
+theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
+∃ i j : Fin l.length, i ≠ j ∧ l.get i ≤ 1 ∧ 1 ≤ l.get j
+| [] => by {simp;}
+| [a] => by {simp;}
+| [a, b] => by {
+  intros h1 h2
+  simp
+  intro hab
+  have crux1 : a ≠ 0 := left_ne_zero_of_mul_eq_one hab
+  have : a ≥ 0 := h2 ⟨0, by linarith⟩
+  have crux2 : a > 0 := Ne.lt_of_le (id (Ne.symm crux1)) this
+  have : b = 1 / a := eq_one_div_of_mul_eq_one_right hab
+  cases le_or_gt 1 a with
+  | inl h => {
+    use 1; use 0
+    simp
+    apply And.intro
+    rw [this]
+    exact (div_le_one crux2).mpr h
+    exact h
+  }
+  | inr h => {
+    use 0; use 1
+    simp
+    apply And.intro
+    linarith
+    rw [this]
+    have : 1/a > 1 := one_lt_one_div crux2 h
+    linarith
+  }
+}
+| a :: (b :: l) => by {
+  intros hl h1 h2
+  have := wow ((a*b) :: l)
+  have : l.length = 0 ∨ l.length ≥ 1 := by {
+    cases l.length with
+    | zero => simp
+    | succ => {
+      apply Or.inr
+      exact tsub_add_cancel_iff_le.mp rfl
+    }
+  }
+  cases this with
+  | inl h => {
+    have : l = [] := List.length_eq_zero.mp h
+    rw [this]
+    apply wow [a, b]
+    simp
+    rw [this] at h1
+    exact h1
+    rw [this] at h2
+    exact h2
+  }
+  | inr h => {
+    have : ((a*b) :: l).length ≥ 2 := by {
+      simp
+      linarith
+    }
+    have crux := wow ((a*b) :: l) this
+    have : (∀ (i : Fin (List.length (a * b :: l))), List.get (a * b :: l) i ≥ 0) := by {
+      intro i
+      simp at i
+      cases h : i.val with
+      | zero => {
+        have h : i = 0 := by exact Fin.ext h
+        simp [h]
+        have p := h1 ⟨0,  Nat.succ_pos (List.length (b :: l))⟩
+        have q := h1 ⟨1, by norm_num⟩
+        simp at p
+        simp at q
+        exact mul_nonneg p q
+      }
+      | succ n => {
+        have : i = ⟨(i : ℕ), i.isLt⟩ := Eq.refl _
+        simp [h] at this
+        rw [this]
+        simp
+        have := h1 ⟨n + 2, by {
+          simp
+          have : i.val < l.length.succ := i.isLt
+          rw [h] at this
+          linarith
+        }⟩
+        simp at this
+        exact this
+      }
+    }
+
+    have := crux this
+    simp at h2
+    have w : (a * b :: l).prod = 1 := by {
+      rw [← h2]
+      simp
+      ring
+    }
+    match this w with
+    | ⟨i, j, ⟨hij, h⟩⟩ => {
+      let zero' : Fin (a*b::l).length := ⟨0, by simp⟩
+      have : (i = zero' ∨ j = zero') ∨ ¬ (i = zero' ∨ j = zero') := em _
+      cases this with
+      | inl h' => {
+        cases h' with
+          | inl e => {
+            have : ¬ (a > 1 ∧ b > 1) := by {
+              intro w
+              simp [e] at h
+              match w with
+              | ⟨w1, w2⟩ => {
+                have q1 : a > 0 := by linarith
+                have q2 : b > 0 := by linarith
+                have : a*b > 1 := by exact Right.one_lt_mul_of_lt_of_lt w1 w2 q2
+                linarith [h.left]
+              }
+            }
+            cases not_and_or.mp this with
+            | inl u => {
+              simp at u
+              use ⟨i, by simp[e]⟩
+              use ⟨j+1, by {
+                have := j.isLt
+                simp only [List.length] at this
+                simp
+                linarith
+              }⟩
+              simp
+              match j with
+                | ⟨j_val, j_lt⟩ => {
+                  cases j_val with
+                  | zero => {
+                    simp at hij
+                    apply False.elim
+                    rw [e] at hij
+                    simp at hij
+                  }
+                  | succ n => {
+                    simp
+                    have : 0 < n.succ := by simp
+                    apply And.intro
+                    rw [e]
+                    have : zero'.val < n.succ + 1 := by linarith
+                    exact Nat.ne_of_lt this
+
+                    apply And.intro
+                    simp [e]
+                    exact u
+                    exact h.right
+                  }
+                }
+            }
+            | inr v => {
+              simp at v
+              use ⟨j + 1, by {
+                have := j.isLt
+                simp only [List.length] at this
+                simp
+                linarith
+              }⟩
+              use ⟨i, by simp[e]⟩
+              simp
+
+              match j with
+                | ⟨j_val, j_lt⟩ => {
+                  cases j_val with
+                  | zero => {
+                    simp at hij
+                    apply False.elim
+                    rw [e] at hij
+                    simp at hij
+                  }
+                  | succ n => {
+                    apply And.intro
+                    simp
+                    have : 0 < n.succ := by simp
+                    rw [e]
+                    have : zero'.val < n.succ + 1 := by linarith
+                    linarith
+                    simp [e]
+                    simp [e] at h
+                  }
+                }
+            }
+          }
+
+      }
+
+
+    }
+  }
+}
+end agm
 
 namespace C03S01
 
@@ -22,8 +216,7 @@ variable (ha : |a| < δ) (hb : |b| < δ)
 end
 
 theorem my_lemma2 : ∀ {x y ε : ℝ}, 0 < ε → ε ≤ 1 → |x| < ε → |y| < ε → |x * y| < ε :=
-  sorry
-
+  by intros x y
 section
 variable (a b δ : ℝ)
 variable (h₀ : 0 < δ) (h₁ : δ ≤ 1)
