@@ -4,6 +4,24 @@ import Mathlib.Data.List.Basic
 
 namespace agm
 
+#check Odd
+-- example of how to use wlog and generalizing
+example (P Q : Prop) : P ∨ Q → ¬ P → Q := by tauto
+example (a b : Nat) (hab : Even a ∨ Even b) : Even (a*b) := by
+wlog h : Even a generalizing a b
+
+have u : Even b := by tauto
+specialize this b a (Or.inl u) u
+rw [mul_comm] at this
+exact this
+
+match h with
+| ⟨k, hk⟩ => {
+  use k*b
+  rw [hk]
+  ring
+}
+
 #check List.Mem
 theorem prod_one_imp : (l : List ℝ) →  ∀ i, (l.get i = 0 → l.prod = 0)
 | [] => by simp
