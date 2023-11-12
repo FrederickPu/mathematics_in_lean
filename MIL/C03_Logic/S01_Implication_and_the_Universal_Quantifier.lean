@@ -4,6 +4,28 @@ import Mathlib.Data.List.Basic
 
 namespace agm
 
+#check List.Mem
+theorem prod_one_imp : (l : List ℝ) →  ∀ i, (l.get i = 0 → l.prod = 0)
+| [] => by simp
+| a :: l => by {
+  intro i
+  match i with
+  | ⟨i_val, is⟩ => cases i_val with
+    | zero => {
+      simp
+      intro h
+      left
+      exact h
+    }
+    | succ n => {
+      simp
+      intro h
+      right
+      rw [← h]
+      exact List.get_mem l n (Nat.lt_of_succ_lt_succ is)
+    }
+}
+
 theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
 ∃ i j : Fin l.length, i ≠ j ∧ l.get i ≤ 1 ∧ 1 ≤ l.get j
 | [] => by {simp;}
@@ -106,7 +128,7 @@ theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l
       cases this with
       | inl h' => {
         cases h' with
-          | inl e => {
+        | inl e => {
             have : ¬ (a > 1 ∧ b > 1) := by {
               intro w
               simp [e] at h
@@ -155,13 +177,13 @@ theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l
             }
             | inr v => {
               simp at v
+              use ⟨1, by simp[e]⟩
               use ⟨j + 1, by {
                 have := j.isLt
                 simp only [List.length] at this
                 simp
                 linarith
               }⟩
-              use ⟨i, by simp[e]⟩
               simp
 
               match j with
@@ -175,24 +197,58 @@ theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l
                   }
                   | succ n => {
                     apply And.intro
-                    simp
+                    simp [e]
                     have : 0 < n.succ := by simp
-                    rw [e]
-                    have : zero'.val < n.succ + 1 := by linarith
-                    linarith
+                    have : 1 < n.succ + 1 := by linarith
+                    exact Fin.ne_of_lt this
                     simp [e]
                     simp [e] at h
+                    have := h.left;
+                    have : b ≠ 0 := by {
+                      intro q
+                      rw [q] at h2
+                      simp at h2
+                    }
+                    apply And.intro
+                    exact v
+                    exact h.right
                   }
                 }
             }
           }
-
+        | inr h' => {
+          sorry -- same logic as inl
+        }
       }
-
+      | inr r => {
+        have : i ≠ zero' ∧ j ≠ zero' := by exact not_or.mp r
+        match i, j with
+        | ⟨0, is⟩, _ => simp at this
+        | _, ⟨0, is⟩ => simp at this
+        | ⟨Nat.succ n, isn⟩, ⟨Nat.succ m, ism⟩ => {
+          use ⟨n + 2, by {
+            simp
+            simp at isn
+            linarith
+          }⟩
+          use ⟨m + 2, by {
+            simp
+            simp at ism
+            linarith
+          }⟩
+          simp
+          apply And.intro
+          simp at hij
+          exact hij
+          simp at h
+          exact h
+        }
+      }
 
     }
   }
 }
+termination_by wow a => max a.length 2
 end agm
 
 namespace C03S01
