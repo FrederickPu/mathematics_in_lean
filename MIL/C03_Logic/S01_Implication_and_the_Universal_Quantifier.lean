@@ -233,27 +233,15 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
       intro i
       simp at i
       match i with
-      | 0 => {
-        simp
-        linarith
-      }
-      | 1 => {
-        simp
-        linarith
-      }
+      | 0 => simp; linarith
+      | 1 => simp; linarith
     }
     match w with
     | ⟨i, j, hij⟩ =>
     use j; use i
     match i, j with
-    | 0, 1 => {
-      simp
-      exact hij.right
-    }
-    | 1, 0 => {
-      simp
-      exact hij.right
-    }
+    | 0, 1 => simp; exact hij.right
+    | 1, 0 => simp; exact hij.right
     | 0, 0 => simp at hij
     | 1, 1 => simp at hij
   }
@@ -266,8 +254,7 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
     exact Or.inl ⟨h, hl'⟩
   }
   | inr hE => {
-    rw [hE] at hab
-    ring_nf at hab
+    simp only [hE, one_mul] at hab
     use 0; use 1
     simp [hE, hab, Bet]
   }
@@ -275,17 +262,14 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
 | a :: (b :: l') => by {
   let l'' := b :: l'
   have quirk : b :: l' = l'' := Eq.refl _
-  have hl' : l''.length ≥ 1 := by {
-    simp
-    linarith
-  }
+  have hl' : l''.length ≥ 1 := by simp; linarith
   rw [quirk]
   generalize l'' = l at *
 
   intros _ h1 h2
   simp at h2
   by_cases h : (a ≥ 1)
-  {
+  { -- pos
     have : ∃ i, l.get i ≤ 1 := by {
       apply by_contradiction
       intro h'
@@ -320,38 +304,40 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
       exact ⟨hj, h⟩
     }
   }
-  have : ∃ i, l.get i ≥ 1 := by {
-    apply by_contradiction
-    intro h'
-    simp at h'
-    have crux1 := prod_lt_one l (by linarith) (by {
-      intro i
-      apply And.intro
-      exact h1 (⟨i.val + 1, by {
-        have := i.isLt
+  { -- neg
+    have : ∃ i, l.get i ≥ 1 := by {
+      apply by_contradiction
+      intro h'
+      simp at h'
+      have crux1 := prod_lt_one l (by linarith) (by {
+        intro i
+        apply And.intro
+        exact h1 (⟨i.val + 1, by {
+          have := i.isLt
+          simp
+          linarith
+        }⟩)
+        exact h' i
+      })
+      have crux2 := mul_ge_one_imp a (l.prod) (h1 ⟨0, by simp⟩) (by linarith)
+      have : l.prod ≥ 1 := by tauto
+      linarith only [this, crux1]
+    }
+    match this with
+    | ⟨j, hj⟩ => {
+      use ⟨0, by simp⟩
+      use ⟨j.val + 1, by {
+        have := j.isLt
         simp
         linarith
-      }⟩)
-      exact h' i
-    })
-    have crux2 := mul_ge_one_imp a (l.prod) (h1 ⟨0, by simp⟩) (by linarith)
-    have : l.prod ≥ 1 := by tauto
-    linarith only [this, crux1]
-  }
-  match this with
-  | ⟨j, hj⟩ => {
-    use ⟨0, by simp⟩
-    use ⟨j.val + 1, by {
-      have := j.isLt
+      }⟩
       simp
-      linarith
-    }⟩
-    simp
-    rw [Fin.eq_mk_iff_val_eq]
-    use (Nat.succ_ne_zero j).symm
+      rw [Fin.eq_mk_iff_val_eq]
+      use (Nat.succ_ne_zero j).symm
 
-    apply Or.inl
-    exact ⟨by linarith, hj⟩
+      apply Or.inl
+      exact ⟨by linarith, hj⟩
+    }
   }
 }
 theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
