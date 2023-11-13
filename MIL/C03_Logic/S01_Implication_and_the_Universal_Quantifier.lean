@@ -86,6 +86,106 @@ theorem Bet.symm {a1 b a2}  : Bet a1 b a2 → Bet a2 b a1 := by
 simp [Bet]
 tauto
 
+def ind_swap {n : Nat} (i : Fin n.succ.succ) : Fin n.succ.succ :=
+match i with
+| ⟨i_val, is⟩ =>
+match i_val with
+| 0 => ⟨1, by simp⟩
+| 1 => ⟨0, by simp⟩
+| Nat.succ (Nat.succ n) => ⟨n.succ.succ, is⟩
+
+#check Function.Injective
+#check Fin.eq_mk_iff_val_eq
+#check Nat.succ_ne_zero
+example (f : ℝ → ℝ) (hi : f.Injective) (a b : ℝ) : a ≠ b → f a ≠ f b := by
+intro h
+exact Function.Injective.ne hi h
+
+def ind_swap_inj (n : Nat) : (@ind_swap n).Injective := by
+intros i j
+match i, j with
+| ⟨i_val, is⟩, ⟨j_val, js⟩ =>
+match i_val, j_val with
+| 0, 0 => simp
+| 1, 1 => simp
+| Nat.succ (Nat.succ n), Nat.succ (Nat.succ m) => simp [ind_swap]
+| 0, 1 => simp [ind_swap]
+| 0, Nat.succ (Nat.succ m) => {
+  simp [ind_swap]
+  intro h
+  apply False.elim
+  rw [Fin.eq_mk_iff_val_eq] at h
+  simp at h
+  exact Nat.succ_ne_zero m h.symm
+}
+| 1, 0 => simp [ind_swap]
+| 1, Nat.succ (Nat.succ m) => {
+  simp [ind_swap]
+  intro h
+  apply False.elim
+  simp [Fin.eq_mk_iff_val_eq] at h
+}
+| Nat.succ (Nat.succ n), 0 => {
+  simp [ind_swap]
+  rw [Fin.eq_mk_iff_val_eq]
+  simp
+}
+| Nat.succ (Nat.succ n), 1 => {
+  simp [ind_swap]
+  rw [Fin.eq_mk_iff_val_eq]
+  simp
+}
+
+theorem swap_ind_swap (a b : ℝ) (l : List ℝ) (i : Fin (a :: b :: l).length) : (a :: b :: l).get i = (b :: a :: l).get (ind_swap i) := by
+match i with
+| ⟨i_val, is⟩ =>
+match i_val with
+| 0 => simp only [List.get, ind_swap]
+| 1 => simp only [List.get, ind_swap]
+| Nat.succ (Nat.succ n) => simp only [List.get, ind_swap]
+
+theorem mul_ge_one_imp (a b : ℝ) (ha : a ≥ 0) (hb : b ≥ 0) : a*b ≥ 1 → a ≥ 1 ∨ b ≥ 1 := by
+  intro hab
+  apply by_contradiction
+  intro h
+  have := not_or.mp h
+  simp at this
+  have : a ≤ 1 := by linarith
+  have : a*b ≤ 1*b := by exact mul_le_mul_of_nonneg_right this hb
+  linarith
+theorem mul_le_one_imp (a b : ℝ) (ha : a ≥ 0) (hb : b ≥ 0) : a*b ≤ 1 → a ≤ 1 ∨ b ≤ 1 := by
+  intro hab
+  apply by_contradiction
+  intro h
+  have := not_or.mp h
+  simp at this
+  have : a ≥ 1 := by linarith
+  have : a*b ≥ 1*b := by exact mul_le_mul_of_nonneg_right this hb
+  linarith
+theorem prod_gt_one : (l : List ℝ) → (hl : l.length > 0) → (h1 : ∀ i : Fin l.length, l.get i > 1) → l.prod > 1
+| [] => by simp
+| [a] => by simp
+| (a :: b :: l) => by {
+  simp
+  intro h1
+  have := prod_gt_one (b :: l) (by simp) (by {
+    intro i
+    specialize h1 ⟨i.val + 1, by {
+      simp
+      have := i.isLt
+      simp only [List.length] at this
+      linarith
+    }⟩
+    exact h1
+  })
+  simp at this
+  specialize h1 ⟨0, by simp⟩
+  simp at h1
+  have ha : a > 0 := by linarith
+  have : a * 1 < a*(b*l.prod) := by exact (mul_lt_mul_left ha).mpr this
+  linarith
+}
+
 theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
 ∃ i j : Fin l.length, i ≠ j ∧ Bet (l.get i) 1 (l.get j)
 | [] => by {simp;}
@@ -94,29 +194,44 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
   intros h1 h2
   simp
   intro hab
-  have crux1 : a ≠ 0 := left_ne_zero_of_mul_eq_one hab
-  have : a ≥ 0 := h2 ⟨0, by linarith⟩
-  have crux2 : a > 0 := Ne.lt_of_le (id (Ne.symm crux1)) this
-  have : b = 1 / a := eq_one_div_of_mul_eq_one_right hab
-  cases le_or_gt 1 a with
-  | inl h => {
-    use 1; use 0
-    simp
-    apply Or.inl
-    apply And.intro
-    rw [this]
-    exact (div_le_one crux2).mpr h
-    exact h
+  have ha : a ≥ 0 := h2 ⟨0, by linarith⟩
+  have hb : b ≥ 0 := h2 ⟨1, by linarith⟩
+  have crux1 := mul_le_one_imp a b ha hb (Eq.le hab)
+  have crux2 := mul_ge_one_imp a b ha hb (Eq.ge hab)
+
+  wlog h : a ≤ 1 generalizing a b with w
+  {
+    have : b ≤ 1 := by tauto
+    rw [mul_comm] at hab
+    specialize w b a h1 h2 hab hb ha crux1.symm crux2.symm this
+    match w with
+    | ⟨i, j, hij⟩ =>
+    use j; use i
+    match i, j with
+    | 0, 1 => {
+      simp
+      exact hij.right
+    }
+    | 1, 0 => {
+      simp
+      exact hij.right
+    }
+    | 0, 0 => simp at hij
+    | 1, 1 => simp at hij
   }
-  | inr h => {
+  cases LE.le.lt_or_eq h with
+  | inl hT => {
+    have : ¬ a ≥ 1 := not_le.mpr hT
+    have hl' : b ≥ 1 := by tauto
     use 0; use 1
     simp
-    apply Or.inl
-    apply And.intro
-    linarith
-    rw [this]
-    have : 1/a > 1 := one_lt_one_div crux2 h
-    linarith
+    exact Or.inl ⟨h, hl'⟩
+  }
+  | inr hE => {
+    rw [hE] at hab
+    ring_nf at hab
+    use 0; use 1
+    simp [hE, hab, Bet]
   }
 }
 | a :: (b :: (c :: l')) => by {
@@ -130,107 +245,14 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
   generalize l'' = l at *
 
   intros hl h1 h2
-  have := agm2 ((a*b) :: l)
-  have boom : ((a*b) :: l).length ≥ 2 := by {
-      simp
-      linarith
-  }
-  have crux := agm2 ((a*b) :: l) boom
-  have wam : (∀ (i : Fin (List.length (a * b :: l))), List.get (a * b :: l) i ≥ 0) := by {
-    intro i
-    simp at i
-    cases h : i.val with
-    | zero => {
-      have h : i = 0 := by exact Fin.ext h
-      simp [h]
-      have p := h1 ⟨0,  Nat.succ_pos (List.length (b :: l))⟩
-      have q := h1 ⟨1, by norm_num⟩
-      simp at p
-      simp at q
-      exact mul_nonneg p q
-    }
-    | succ n => {
-      have : i = ⟨(i : ℕ), i.isLt⟩ := Eq.refl _
-      simp [h] at this
-      rw [this]
-      simp
-      have := h1 ⟨n + 2, by {
-        simp
-        have : i.val < l.length.succ := i.isLt
-        rw [h] at this
-        linarith
-      }⟩
-      simp at this
-      exact this
-    }
-  }
-
-  have := crux wam
   simp at h2
-  have w : (a * b :: l).prod = 1 := by {
-    rw [← h2]
-    simp
-    ring
+  have : ∃ i, (l).get i ≤ 1 := by {
+    apply by_contradiction
+    intro h
+    simp at h
+    have := prod_gt_one l (by linarith) h
+    linarith
   }
-  match this w with
-  | ⟨i, j, ⟨hij, h⟩⟩ => {
-    let zero' : Fin (a*b::l).length := ⟨0, by simp⟩
-    have : (i = zero' ∨ j = zero') ∨ ¬ (i = zero' ∨ j = zero') := em _
-    cases this with
-    | inl h0 =>
-      wlog hw : (i = zero') generalizing i j with w
-      have : j = zero' := by tauto
-      exact w j i hij.symm h.symm h0.symm this
-      wlog hw1 : a ≤ 1 generalizing a b with w1
-      specialize w1 b a (by {
-        simp
-        linarith
-      })
-
-      specialize w1 (by assumption)
-
-      specialize w1 (by {
-        rw [mul_comm]
-        intros _ e
-        apply this
-      })
-
-      rw [mul_comm] at w1
-      specialize w1 boom (by assumption) (by assumption) (by assumption) _ (by assumption)
-      rw [← h2]
-      ring
-
-      match hj1 : j with
-        | ⟨j_val, js⟩ =>
-        match hj1v : j_val with
-        | 1 => {
-          specialize w1 ⟨1, js⟩ ⟨0, by simp⟩ hij.symm h.symm h0.symm (Eq.refl _) _
-          cases h with
-          | inl hl => {
-            simp [hw] at hl
-            have := mul_le_one_elim hl.left
-            cases this with
-            | inl ha => linarith
-            | inr hb => exact hb
-          }
-          | inr hr => {
-            simp [hw] at hr
-            rw [← mul_assoc] at h2
-            have : a * b * List.prod l ≤ 1 := by exact Eq.le h2
-            have := mul_le_one_elim this
-            apply by_contradiction
-            intro hc
-            simp at hc
-            simp at hw1
-          }
-        }
-        | 1 => exact h1 ⟨0, by simp⟩
-        | Nat.succ (Nat.succ n) => {
-          simp
-          exact h1 ⟨n.succ.succ, is⟩
-        }
-
-
 }
 theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
 ∃ i j : Fin l.length, i ≠ j ∧ l.get i ≤ 1 ∧ 1 ≤ l.get j
