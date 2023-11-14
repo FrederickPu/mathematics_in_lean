@@ -211,6 +211,19 @@ theorem prod_lt_one : (l : List ℝ) → (hl : l.length > 0) → (h1 : ∀ i : F
     linarith
   }
 }
+
+theorem agm1 (a b : ℝ) : Bet a 1 b → a + b ≥ a*b + 1 := by
+  intro hB
+  wlog h : a ≤ 1 ∧ 1 ≤ b generalizing a b with w
+  rw [Bet] at hB
+  have : b ≤ 1 ∧ 1 ≤ a := by tauto
+  specialize w b a (Or.inr this).symm this
+  linarith
+
+  have : (a-1)*(b-1) ≤ 0 :=
+    mul_nonpos_of_nonpos_of_nonneg (by linarith) (by linarith)
+  linarith
+
 theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
 ∃ i j : Fin l.length, i ≠ j ∧ Bet (l.get i) 1 (l.get j)
 | [] => by {simp;}
@@ -309,16 +322,17 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
       apply by_contradiction
       intro h'
       simp at h'
-      have crux1 := prod_lt_one l (by linarith) (by {
-        intro i
-        apply And.intro
-        exact h1 (⟨i.val + 1, by {
+      have crux1 := prod_lt_one l (by linarith) (
+        fun i => ⟨
+          h1 (⟨i.val + 1, by {
           have := i.isLt
           simp
           linarith
-        }⟩)
-        exact h' i
-      })
+          }⟩),
+
+          h' i
+        ⟩
+      )
       have crux2 := mul_ge_one_imp a (l.prod) (h1 ⟨0, by simp⟩) (by linarith)
       have : l.prod ≥ 1 := by tauto
       linarith only [this, crux1]
@@ -340,6 +354,93 @@ theorem agm2 : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → 
     }
   }
 }
+
+def bruh := [1, 2, 3]
+#eval List.sublist
+
+#check List.prod_split
+example : (l : List ℝ) → (a : ℝ) → ∀ i : Fin l.length, ((a :: l).splitAt (i + 1)).fst = a :: (l.splitAt i).fst
+| [] => by simp
+| b :: l => by simp
+theorem List.splitAt_prod : (l : List ℝ) → ∀ i : Fin l.length, (l.prod = (l.splitAt i).fst.prod * (l.splitAt i).snd.prod)
+| [] => by simp
+| a :: l => by simp only [List.prod_cons, List.length_cons, List.splitAt_eq_take_drop,
+  List.prod_take_mul_prod_drop, implies_true]
+example (l : List ℝ) : ∀ (i: Fin l.length), l.prod = (l.take i).prod * (l.get i) *(l.drop (i + 1)).prod := by
+intro i
+have w : l.drop i = l.get i :: l.drop (i + 1) := by {
+  exact (List.get_cons_drop l i).symm
+}
+have := l.prod_take_mul_prod_drop i
+rw [w] at this
+simp at this
+rw [← mul_assoc] at this
+exact this.symm
+
+#check List.take
+#eval List.take 1 [1, 2, 3]
+#eval List.drop 2 [1, 2, 3]
+#check List.drop
+#check List.splitAt_eq_take_drop
+#check List.prod_take_mul_prod_drop
+
+theorem kevin : (n : ℕ) → n ≥ 1 → ∃ x : ℕ, Odd x ∧ ∃ y : Nat, n = x* 2^y
+| 0 => by simp
+| 1 => by {
+  intro h
+  use 1
+  simp
+  use 0
+  simp
+}
+| 2 => by {
+  intro _
+  use 1
+  simp
+  use 1
+  simp
+}
+| Nat.succ (Nat.succ (Nat.succ n')) => by {
+  let n'' := n'.succ.succ
+  have quirk : n'.succ.succ = n'' := Eq.refl _
+  rw [quirk]
+  have w : n'' ≥ 2 := by linarith
+
+  generalize n'' = n at *
+  intro _
+  cases Nat.even_or_odd n.succ with
+  | inl hE => {
+    match hE with
+    | ⟨m, hm⟩ => {
+      rw [hm]
+      match kevin m (by linarith) with
+      | ⟨x, ⟨hx, y, hxy⟩⟩ => {
+        use x
+        use hx
+        use (y + 1)
+        rw [hxy]
+        ring
+      }
+    }
+  }
+  | inr hO => {
+    use n.succ
+    use hO
+    use 0
+    ring
+  }
+}
+termination_by kevin n => n
+decreasing_by {
+  simp_wf
+  simp at hm
+  rw [hm]
+  norm_num
+  match m with
+  | 0 => simp at hm
+  | Nat.succ k => exact Nat.succ_pos k
+}
+
 theorem wow : (l : List ℝ) → l.length ≥ 2 → (∀ i, l.get i ≥ 0) → l.prod = 1→
 ∃ i j : Fin l.length, i ≠ j ∧ l.get i ≤ 1 ∧ 1 ≤ l.get j
 | [] => by {simp;}

@@ -1,6 +1,8 @@
 import MIL.Common
 import Mathlib.Data.Real.Basic
 
+
+
 namespace C03S03
 
 section
@@ -136,4 +138,3 @@ example (h : 0 < 0) : a > 37 := by
   contradiction
 
 end
-
